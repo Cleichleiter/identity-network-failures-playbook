@@ -22,7 +22,6 @@ Identify the correct ownership domain early
 
 Use this after basic triage but before deep identity or network changes.
 
-Visual Boundary Decision Tree (ASCII)
 START
   |
   v
@@ -71,6 +70,7 @@ START
                                 +--> Yes --> IDENTITY or APPLICATION AUTH PATH
                                 |
                                 +--> No  --> Likely transient or endpoint issue
+
 
 Key Boundary Rules
 
