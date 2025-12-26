@@ -22,6 +22,9 @@ Identify the correct ownership domain early
 
 Use this after basic triage but before deep identity or network changes.
 
+## Visual Boundary Decision Tree (ASCII)
+
+```text
 START
   |
   v
@@ -65,7 +68,7 @@ START
                           +--> No
                                 |
                                 v
-                    [Is access to specific services failing?]
+[Is access to specific services failing?]
                                 |
                                 +--> Yes --> IDENTITY or APPLICATION AUTH PATH
                                 |
