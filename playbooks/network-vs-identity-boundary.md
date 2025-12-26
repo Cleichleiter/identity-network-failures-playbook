@@ -1,134 +1,104 @@
-\# Network vs Identity Boundary Decision Tree
-
-
+Network vs Identity Boundary Decision Tree
 
 (DNS, Connectivity, Kerberos, Authentication Boundaries)
 
+Audience: Tier 2–3 engineers, escalation engineers, on-call responders
+Purpose: Determine whether an issue is primarily network-layer or identity-layer before deep troubleshooting
 
+Why This Exists
 
-\*\*Audience:\*\* Tier 2–3 engineers, escalation engineers, on-call responders  
-
-\*\*Purpose:\*\* Determine whether an issue is primarily network-layer or identity-layer before deep troubleshooting
-
-
-
----
-
-
-
-\## Why This Exists
-
-
-
-Many “identity” failures are \*\*secondary symptoms\*\* of network or DNS issues.  
-
-Likewise, some network tests pass while authentication still fails due to \*\*identity-layer conditions\*\*.
-
-
+Many “identity” failures are secondary symptoms of network or DNS issues.
+Likewise, some network tests pass while authentication still fails due to identity-layer conditions.
 
 This decision tree exists to:
 
-\- Prevent mis-scoped troubleshooting
+Prevent mis-scoped troubleshooting
 
-\- Avoid unnecessary identity changes
+Avoid unnecessary identity changes
 
-\- Reduce escalation noise
+Reduce escalation noise
 
-\- Identify the \*correct\* domain of ownership early
+Identify the correct ownership domain early
 
+Use this after basic triage but before deep identity or network changes.
 
-
-Use this \*\*after basic triage\*\* but \*\*before deep identity or network changes\*\*.
-
-
-
----
-
-
-
-\## Visual Boundary Decision Tree (ASCII)
-
-
-
-```text
-
+Visual Boundary Decision Tree (ASCII)
 START
+  |
+  v
+[Can the device reach the network?]
+  |
+  +--> No IP / APIPA / wrong VLAN?
+  |       |
+  |       v
+  |   NETWORK ISSUE (stop identity work)
+  |
+  +--> IP present + correct subnet
+          |
+          v
+[Can the device resolve DNS?]
+          |
+          +--> No name resolution / wrong DNS
+          |       |
+          |       v
+          |   NETWORK / DNS ISSUE
+          |
+          +--> DNS resolves
+                  |
+                  v
+[Can the device reach a Domain Controller?]
+                  |
+                  +--> No ping / ports blocked
+                  |       |
+                  |       v
+                  |   NETWORK ISSUE
+                  |
+                  +--> DC reachable
+                          |
+                          v
+[Does Kerberos or authentication fail?]
+                          |
+                          +--> Yes
+                          |       |
+                          |       v
+                          |   IDENTITY ISSUE
+                          |
+                          +--> No
+                                |
+                                v
+                    [Is access to specific services failing?]
+                                |
+                                +--> Yes --> IDENTITY or APPLICATION AUTH PATH
+                                |
+                                +--> No  --> Likely transient or endpoint issue
 
-&nbsp; |
+Key Boundary Rules
 
-&nbsp; v
+No IP, wrong VLAN, or bad gateway
+→ Network issue. Stop identity troubleshooting.
 
-\[Can the device reach the network?]
+DNS resolution fails or AD SRV records missing
+→ Network/DNS issue. Identity services cannot function.
 
-&nbsp; |
+DC unreachable or core ports blocked (88/389/445/135)
+→ Network issue.
 
-&nbsp; +--> No IP / APIPA / wrong VLAN?
+Network and DNS healthy, but authentication fails
+→ Identity-layer issue (Kerberos, trust, user policy, time).
 
-&nbsp; |       |
+Related Artifacts
 
-&nbsp; |       v
+Boundary validation script:
+scripts/Test-NetworkIdentityBoundary.ps1
 
-&nbsp; |   NETWORK ISSUE (stop identity work)
+Identity deep dive:
+playbooks/identity-failure-decision-tree.md
 
-&nbsp; |
+Escalation preparation:
+checklists/03-escalation-handoff.md
 
-&nbsp; +--> IP present + correct subnet
+Principle to Remember
 
-&nbsp;         |
+Identity troubleshooting without validating the network boundary first is guesswork.
 
-&nbsp;         v
-
-\[Can the device resolve DNS?]
-
-&nbsp;         |
-
-&nbsp;         +--> No name resolution / wrong DNS --> NETWORK/DNS ISSUE
-
-&nbsp;         |
-
-&nbsp;         +--> DNS resolves
-
-&nbsp;                 |
-
-&nbsp;                 v
-
-\[Can the device reach a Domain Controller?]
-
-&nbsp;                 |
-
-&nbsp;                 +--> No ping / ports blocked --> NETWORK ISSUE
-
-&nbsp;                 |
-
-&nbsp;                 +--> DC reachable
-
-&nbsp;                         |
-
-&nbsp;                         v
-
-\[Does Kerberos/authentication fail?]
-
-&nbsp;                         |
-
-&nbsp;                         +--> Yes --> IDENTITY ISSUE
-
-&nbsp;                         |
-
-&nbsp;                         +--> No
-
-&nbsp;                               |
-
-&nbsp;                               v
-
-&nbsp;                     \[Is access to specific services failing?]
-
-&nbsp;                               |
-
-&nbsp;                               +--> Yes --> IDENTITY or APP AUTH PATH
-
-&nbsp;                               |
-
-&nbsp;                               +--> No --> Likely transient or endpoint issue
-
-
-
+This decision tree exists to ensure the right problem is being solved before changes are made.
