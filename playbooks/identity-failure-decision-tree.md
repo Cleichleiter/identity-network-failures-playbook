@@ -1,16 +1,14 @@
-\# Identity Failure Decision Tree
-
+# Identity Failure Decision Tree  
 (Login, Kerberos, DNS, Trust Issues)
 
+**Audience:** Tier 2–3 engineers, escalation engineers, on-call responders  
+**Prerequisite:** Initial triage and evidence collection completed
 
+This decision tree guides engineers through structured decision-making when diagnosing identity and authentication failures in Windows environments.
 
-This decision tree guides engineers through structured decision-making
+Use this **after initial triage** and evidence collection.
 
-when diagnosing identity and authentication failures in Windows environments.
-
-
-
-Use this \*\*after initial triage\*\* and evidence collection.
+---
 
 ## Visual Decision Tree (ASCII)
 
@@ -75,289 +73,183 @@ START
                                              +--> Yes --> Identify offending policy --> Rollback/adjust
                                              |
                                              +--> No --> Escalate with evidence packet
-
-
-
+````
 
 ---
 
+## Fast Failure Signals (Jump Points)
 
-
-\## STEP 1 — Scope the Failure
-
-
-
-\*\*Question:\*\* Who is affected?
-
-
-
-\- \[ ] Single user
-
-\- \[ ] Multiple users
-
-\- \[ ] Single device
-
-\- \[ ] Entire site
-
-\- \[ ] Entire environment
-
-
-
-\*\*Decision:\*\*
-
-\- Single user/device → likely endpoint, profile, or trust issue
-
-\- Multiple users/single site → likely DNS, time, DC reachability, or VLAN
-
-\- Everyone → likely AD, DNS, firewall, or DC outage
-
-
+* Multiple users failing + time skew → Go to **STEP 3**
+* Kerberos errors + DNS warnings → Go to **STEP 4**
+* Cached login works, online login fails → Go to **STEP 5**
 
 ---
 
+## STEP 1 — Scope the Failure
 
+**Question:** Who is affected?
 
-\## STEP 2 — Can the device reach domain services?
+* [ ] Single user
+* [ ] Multiple users
+* [ ] Single device
+* [ ] Entire site
+* [ ] Entire environment
 
+**Decision:**
 
+* Single user/device → likely endpoint, profile, or trust issue
+* Multiple users/single site → likely DNS, time, DC reachability, or VLAN
+* Everyone → likely AD, DNS, firewall, or DC outage
+
+---
+
+## STEP 2 — Can the device reach domain services?
 
 From the affected device:
 
+* Can it ping a Domain Controller?
+* Can it resolve the domain via DNS?
+* Can it reach port 88 (Kerberos) and 389/445 (LDAP/SMB)?
 
+**If NO:**
 
-\- Can it ping a Domain Controller?
-
-\- Can it resolve the domain via DNS?
-
-\- Can it reach port 88 (Kerberos) and 389/445 (LDAP/SMB)?
-
-
-
-\*\*If NO:\*\*
-
-→ Treat as \*\*network/DNS issue\*\*
-
+→ Treat as **network/DNS issue**
 → Pivot to network troubleshooting playbook
 
-
-
-\*\*If YES:\*\*
+**If YES:**
 
 → Continue to identity checks
 
-
-
 ---
 
-
-
-\## STEP 3 — Is time synchronization healthy?
-
-
+## STEP 3 — Is time synchronization healthy?
 
 Check:
 
-\- Local system time
+* Local system time
+* Domain Controller time
+* Time skew greater than 5 minutes
 
-\- Domain Controller time
-
-\- Time skew > 5 minutes?
-
-
-
-\*\*If skewed:\*\*
+**If skewed:**
 
 → Kerberos authentication will fail
-
 → Fix time source (NTP / w32time)
-
 → Retest authentication
 
-
-
-\*\*If time is correct:\*\*
+**If time is correct:**
 
 → Continue
 
-
-
 ---
 
-
-
-\## STEP 4 — Is this a Kerberos or credential failure?
-
-
+## STEP 4 — Is this a Kerberos or credential failure?
 
 Indicators:
 
-\- Event IDs: 4768, 4769, 4771
+* Event IDs: 4768, 4769, 4771
+* Errors such as:
 
-\- Errors like:
+  * KRB_AP_ERR_SKEW
+  * KDC_ERR_PREAUTH_FAILED
+  * Clock skew / ticket expired
 
-&nbsp; - KRB\_AP\_ERR\_SKEW
+**If Kerberos-related:**
 
-&nbsp; - KDC\_ERR\_PREAUTH\_FAILED
+Validate:
 
-&nbsp; - Clock skew / ticket expired
+* Time synchronization
+* DNS SRV records
+* SPNs (if a service account is involved)
 
+Retest authentication.
 
-
-\*\*If Kerberos-related:\*\*
-
-\- Validate:
-
-&nbsp; - Time sync
-
-&nbsp; - DNS SRV records
-
-&nbsp; - SPNs (if service account involved)
-
-
-
-\*\*If not Kerberos-related:\*\*
+**If not Kerberos-related:**
 
 → Continue
 
-
-
 ---
 
-
-
-\## STEP 5 — Is the device trust broken?
-
-
+## STEP 5 — Is the device trust broken?
 
 From the endpoint:
 
-\- Errors logging in with cached credentials?
+* Errors logging in with cached credentials?
+* Secure channel errors?
+* Event IDs: 5722, 3210, 40960, 40961
 
-\- Secure channel errors?
-
-\- Event IDs: 5722, 3210, 40960/40961
-
-
-
-\*\*If trust is broken:\*\*
+**If trust is broken:**
 
 → Reset computer account or rejoin domain
 
-
-
-\*\*If trust is healthy:\*\*
+**If trust is healthy:**
 
 → Continue
 
-
-
 ---
 
-
-
-\## STEP 6 — Is the issue user-specific?
-
-
+## STEP 6 — Is the issue user-specific?
 
 Check:
 
-\- User can log in elsewhere?
+* Can the user log in elsewhere?
+* Is the account locked or disabled?
+* Is the password expired?
+* Are MFA or Conditional Access policies involved?
 
-\- Account locked or disabled?
-
-\- Password expired?
-
-\- MFA / conditional access policies?
-
-
-
-\*\*If user-specific:\*\*
+**If user-specific:**
 
 → Address account policy, profile, or access assignment
 
-
-
-\*\*If not:\*\*
+**If not:**
 
 → Continue
 
-
-
 ---
 
-
-
-\## STEP 7 — Is Group Policy involved?
-
-
+## STEP 7 — Is Group Policy involved?
 
 Check:
 
-\- Recent GPO changes
+* Recent GPO changes
+* Device OU placement
+* `gpresult /h` output
+* Security filtering or WMI filters
 
-\- Device OU placement
-
-\- gpresult /h output
-
-\- Security filtering or WMI filters
-
-
-
-\*\*If GPO implicated:\*\*
+**If GPO is implicated:**
 
 → Isolate policy impact
-
 → Roll back or adjust
-
-
 
 ---
 
-
-
-\## STEP 8 — Escalation Decision
-
-
+## STEP 8 — Escalation Decision
 
 Escalate when:
 
-\- Root cause spans multiple layers (network + identity)
+* Root cause spans multiple layers (network + identity)
+* Domain-wide authentication is impacted
+* Evidence points to AD/DNS infrastructure failure
+* Changes risk broader impact
 
-\- Domain-wide authentication is impacted
+**Escalation package should include:**
 
-\- Evidence points to AD/DNS infrastructure failure
-
-\- Changes risk broader impact
-
-
-
-\*\*Escalation package should include:\*\*
-
-\- Scope summary
-
-\- Timeline
-
-\- Logs and command output
-
-\- What has already been ruled out
-
-
+* Scope summary
+* Timeline
+* Logs and command output
+* What has already been ruled out
 
 ---
 
-
-
-\## Key Principle
-
-
+## Key Principle
 
 > Do not fix what you haven’t proven broken.
 
-
-
-Identity failures are often \*\*secondary symptoms\*\* of DNS, time, or network issues.
-
+Identity failures are often **secondary symptoms** of DNS, time, or network issues.
 This tree exists to prevent guesswork and repeated disruption.
 
+➡ If root cause is still unclear, escalate using:
 
+* [Escalation Handoff Checklist](../checklists/03-escalation-handoff.md)
+
+```
 
